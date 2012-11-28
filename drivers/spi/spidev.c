@@ -24,6 +24,8 @@
 #include <linux/module.h>
 #include <linux/ioctl.h>
 #include <linux/fs.h>
+#include <linux/of_device.h>
+#include <linux/of_irq.h>
 #include <linux/device.h>
 #include <linux/err.h>
 #include <linux/list.h>
@@ -681,10 +683,16 @@ static int __devexit spidev_remove(struct spi_device *spi)
 	return 0;
 }
 
+static const struct of_device_id spidev_of_id[] = {
+	{ .compatible = "spidev", },
+	{ /* sentinel */ }
+};
+
 static struct spi_driver spidev_spi_driver = {
 	.driver = {
 		.name =		"spidev",
 		.owner =	THIS_MODULE,
+		.of_match_table = spidev_of_id,
 	},
 	.probe =	spidev_probe,
 	.remove =	__devexit_p(spidev_remove),
