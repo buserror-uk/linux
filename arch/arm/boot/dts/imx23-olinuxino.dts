@@ -89,6 +89,18 @@
 		};
 	};
 
+	/*
+	 * maxi declares the i2c by default as software -- so instanciate a linux driver
+	 * for it
+	 */
+	i2c@0 {
+		compatible = "i2c-gpio";
+		gpios = <&gpio2 27 0 /* sda */
+			 &gpio2 28 0 /* scl */
+			>;
+		i2c-gpio,delay-us = <2>;	/* ~100 kHz */
+	};
+
 	leds {
 		compatible = "gpio-leds";
 
