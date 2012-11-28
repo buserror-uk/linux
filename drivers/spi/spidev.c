@@ -31,6 +31,8 @@
 #include <linux/mutex.h>
 #include <linux/slab.h>
 #include <linux/compat.h>
+#include <linux/interrupt.h>
+#include <linux/poll.h>
 
 #include <linux/spi/spi.h>
 #include <linux/spi/spidev.h>
@@ -78,6 +80,7 @@ struct spidev_data {
 	spinlock_t		spi_lock;
 	struct spi_device	*spi;
 	struct list_head	device_entry;
+	wait_queue_head_t irq_queue;
 
 	/* buffer is NULL unless this device is open (users > 0) */
 	struct mutex		buf_lock;
@@ -482,6 +485,22 @@ spidev_compat_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 #define spidev_compat_ioctl NULL
 #endif /* CONFIG_COMPAT */
 
+/*
+ * Using poll on the spidev device will return a read even when an
+ * (optional) interrupt is triggered. This allows interfacing with
+ * SPi packet radios and other devices that have a parallel way
+ * of signaling the CPU for events
+ */
+static unsigned int spidev_poll(struct file * filp, poll_table *wait)
+{
+	struct spidev_data	*spidev = filp->private_data;
+
+	poll_wait(filp, &spidev->irq_queue, wait);
+
+	return POLLIN | POLLRDNORM;
+}
+
+
 static int spidev_open(struct inode *inode, struct file *filp)
 {
 	struct spidev_data	*spidev;
@@ -558,7 +577,21 @@ static const struct file_operations spidev_fops = {
 	.open =		spidev_open,
 	.release =	spidev_release,
 	.llseek =	no_llseek,
+	.poll = spidev_poll,
 };
+
+/*
+ * trigger for an (optional) IRQ that will wake up
+ * userland process that waits on poll() or select()
+ */
+static irqreturn_t spidev_notify_irq(int irq, void *dev)
+{
+	struct spidev_data	*spidev;
+
+	wake_up_interruptible(&spidev->irq_queue);
+
+	return IRQ_HANDLED;
+}
 
 /*-------------------------------------------------------------------------*/
 
@@ -609,6 +642,12 @@ static int __devinit spidev_probe(struct spi_device *spi)
 	if (status == 0) {
 		set_bit(minor, minors);
 		list_add(&spidev->device_entry, &device_list);
+	}
+	if (spi->irq) {
+		status = request_threaded_irq(spi->irq, spidev_notify_irq, NULL, 
+					IRQF_ONESHOT, "spidev-irq", spidev);
+		if (status)
+			dev_err(&spi->dev, "warning: unable to get irq: %d\n", status);
 	}
 	mutex_unlock(&device_list_lock);
 
