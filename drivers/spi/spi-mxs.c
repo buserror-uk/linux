@@ -524,6 +524,7 @@ static int __devinit mxs_spi_probe(struct platform_device *pdev)
 	int devid, dma_channel, clk_freq;
 	int ret = 0, irq_err, irq_dma;
 	dma_cap_mask_t mask;
+	int bus_num = -1;
 
 	/*
 	 * Default clock speed for the SPI core. 160MHz seems to
@@ -568,6 +569,8 @@ static int __devinit mxs_spi_probe(struct platform_device *pdev)
 					   &clk_freq);
 		if (ret)
 			clk_freq = clk_freq_default;
+		if (of_property_read_u32(np, "bus-num", &bus_num))
+			bus_num = -1;
 	} else {
 		dmares = platform_get_resource(pdev, IORESOURCE_DMA, 0);
 		if (!dmares)
@@ -580,7 +583,7 @@ static int __devinit mxs_spi_probe(struct platform_device *pdev)
 	master = spi_alloc_master(&pdev->dev, sizeof(*spi));
 	if (!master)
 		return -ENOMEM;
-
+	master->bus_num = bus_num;
 	master->transfer_one_message = mxs_spi_transfer_one;
 	master->setup = mxs_spi_setup;
 	master->mode_bits = SPI_CPOL | SPI_CPHA;
