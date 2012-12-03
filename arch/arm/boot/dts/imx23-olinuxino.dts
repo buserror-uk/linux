@@ -26,11 +26,11 @@
 		apbh@80000000 {
 			ssp1: ssp@80034000 {
 				compatible = "fsl,imx23-spi";
-				clock-frequency = <160000000>;
-				bus-num = <0>;
+			//	clock-frequency = <160000000>;
+				bus-num = <1>;
 				pinctrl-names = "default";
-				pinctrl-0 = <&spi1_control_pins &spi1_cs_pins>;
-				status = "disabled";
+				pinctrl-0 = <&spi1_control_pins &spi1_cs_pins &tft_pins>;
+				status = "okay";
 
 				#address-cells = <1>;
 				#size-cells = <0>;
@@ -41,6 +41,15 @@
 					spi-max-frequency = <16000000>;
 					interrupts = <&gpio2 28>;
 					interrupt-names = "spidev-trigger";
+				};
+
+				device@1 {
+					compatible = "st7735fb";
+					reg = <1>;
+					spi-max-frequency = <8000000>;
+					st7735fb,dc-gpio = <&gpio1 1 0>;
+					st7735fb,rst-gpio = <&gpio1 0 0>;
+					big-endian = <1>;
 				};
 			};
 			pinctrl@80018000 {
@@ -55,12 +64,22 @@
 				spi1_cs_pins: spi1_cs_pins {
 					reg = <0>;
 					fsl,pinmux-ids = <
-						0x1033  // MX23_PAD_LCD_D03__GPIO_1_3 
+						0x0032  // MX23_PAD_GPMI_D03__SSP2_DATA3 aka Scn0
+						0x0042	// MX23_PAD_GPMI_D04__SSP2_DATA4 aka Scn1
+					//	0x0052	// MX23_PAD_GPMI_D05__SSP2_DATA5 aka Scn2
+
 						// This is optional, this allows the spidev
 						// driver to have an interrupt pin, this is
 						// "Bank 2 pin 28" and it needs a pullup
-						//
 						0x21c3 // MX23_PAD_GPMI_CE0N__GPIO_2_28
+					>;
+					fsl,pull-up = <1>;
+				};
+				tft_pins: tft_pins {
+					reg = <0>;
+					fsl,pinmux-ids = <
+						0x1013  // MX23_PAD_LCD_D01__GPIO_1_1 aka D/C
+						0x1003	// MX23_PAD_LCD_D00__GPIO_1_0 aka RST
 					>;
 					fsl,pull-up = <1>;
 				};
